@@ -32,12 +32,12 @@ internal final class SideMenuPresentationController {
     private var interactivePopGestureRecognizerEnabled: Bool?
     private var clipsToBounds: Bool?
     private let leftSide: Bool
-    private unowned var presentedViewController: UIViewController
-    private unowned var presentingViewController: UIViewController
+    private weak var presentedViewController: UIViewController?
+    private weak var presentingViewController: UIViewController?
 
     private lazy var snapshotView: UIView? = {
         guard config.presentingViewControllerUseSnapshot,
-            let view = presentingViewController.view.snapshotView(afterScreenUpdates: true) else {
+            let view = presentingViewController?.view.snapshotView(afterScreenUpdates: true) else {
                 return nil
         }
 
@@ -64,7 +64,7 @@ internal final class SideMenuPresentationController {
     }
 
     deinit {
-        guard !presentedViewController.isHidden else { return }
+        guard let presentedViewController = presentedViewController, !presentedViewController.isHidden else { return }
 
         // Presentations must be reversed to preserve user experience
         dismissalTransitionWillBegin()
@@ -73,9 +73,12 @@ internal final class SideMenuPresentationController {
     }
     
     func containerViewWillLayoutSubviews() {
-        presentedViewController.view.untransform {
-            presentedViewController.view.frame = frameOfPresentedViewInContainerView
+        guard let presentingViewController = presentingViewController else { return }
+        
+        presentedViewController?.view.untransform {
+            presentedViewController?.view.frame = frameOfPresentedViewInContainerView
         }
+        
         presentingViewController.view.untransform {
             presentingViewController.view.frame = frameOfPresentingViewInContainerView
             snapshotView?.frame = presentingViewController.view.bounds
@@ -89,6 +92,8 @@ internal final class SideMenuPresentationController {
     }
     
     func presentationTransitionWillBegin() {
+        guard let presentedViewController = presentedViewController, let presentingViewController = presentingViewController else { return }
+        
         if let snapshotView = snapshotView {
             presentingViewController.view.addSubview(snapshotView)
         }
@@ -103,10 +108,13 @@ internal final class SideMenuPresentationController {
         }
         
         dismissalTransition()
+        
         config.presentationStyle.presentationTransitionWillBegin(to: presentedViewController, from: presentingViewController)
     }
 
     func presentationTransition() {
+        guard let presentedViewController = presentedViewController, let presentingViewController = presentingViewController else { return }
+        
         transition(
             to: presentedViewController,
             from: presentingViewController,
@@ -125,6 +133,8 @@ internal final class SideMenuPresentationController {
             dismissalTransitionDidEnd(!completed)
             return
         }
+        
+        guard let presentedViewController = presentedViewController, let presentingViewController = presentingViewController else { return }
 
         addParallax(to: presentingViewController.view)
         
@@ -138,12 +148,16 @@ internal final class SideMenuPresentationController {
     }
 
     func dismissalTransitionWillBegin() {
+        guard let presentedViewController = presentedViewController, let presentingViewController = presentingViewController else { return }
+        
         snapshotView?.removeFromSuperview()
         presentationTransition()
         config.presentationStyle.dismissalTransitionWillBegin(to: presentedViewController, from: presentingViewController)
     }
 
     func dismissalTransition() {
+        guard let presentedViewController = presentedViewController, let presentingViewController = presentingViewController else { return }
+        
         transition(
             to: presentingViewController,
             from: presentedViewController,
@@ -159,12 +173,14 @@ internal final class SideMenuPresentationController {
     func dismissalTransitionDidEnd(_ completed: Bool) {
         guard completed else {
             if let snapshotView = snapshotView {
-                presentingViewController.view.addSubview(snapshotView)
+                presentingViewController?.view.addSubview(snapshotView)
             }
             presentationTransitionDidEnd(!completed)
             return
         }
-
+        
+        guard let presentedViewController = presentedViewController, let presentingViewController = presentingViewController else { return }
+        
         statusBarView?.removeFromSuperview()
 
         removeStyles(from: presentingViewController.containerViewController.view)
@@ -223,6 +239,8 @@ private extension SideMenuPresentationController {
     }
 
     func layerViews() {
+        guard let presentedViewController = presentedViewController, let presentingViewController = presentingViewController else { return }
+        
         statusBarView?.layer.zPosition = 2
 
         if config.presentationStyle.menuOnTop {
